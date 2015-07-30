@@ -1,0 +1,6 @@
+7/30/2015
+Changed the script so that it outputs another text file called fulldiffs. fulldiffs prints every old and new line from the compared files, one on top of the other. If there's a difference between the new and old files, it will put '***' at the beginning of the old file. The really convenient thing about this format is that, for a person who's quickly scrolling through, it's very easy to see where there's a difference between the two lines since they won't have the same length.
+
+Also changed the filenames printed to the diffs file, originally it gave the entire path (datasets/english/corpus_file), now it just gives the corpus name with the specific filename, which is a little less clutter.
+
+And I created a log file to properly track any changes.

@@ -151,16 +151,27 @@ char **makeOldFilenames(char *oldpath, char *cleancor, char **bases)
 
 }
 
-char **makeOrigFilenames(char *origpath, char *cleancor, char **bases)
+char **makeOrigFilenames(char *origpath, char **rootlessfiles)
 {
 	char **origfiles = malloc(sizeof(char *) * 7);
 	int i;
 
 	for (i = 0; i < 7; i++)
-		origfiles[i] = threeconcat(origpath, cleancor, bases[i]);
+		origfiles[i] = concat(origpath, rootlessfiles[i]);
 
 	return origfiles;
 
+}
+
+char **makeRootlessFilenames(char *cleancor, char **bases)
+{
+	char **rootlessfiles = malloc(sizeof(char *) * 7);
+	int i;
+
+	for (i = 0; i < 7; i++)
+		rootlessfiles[i] = concat(cleancor, bases[i]);
+
+	return rootlessfiles;
 }
 
 char **makeFileBases()
@@ -187,7 +198,7 @@ char *makeCmd(char *lang, char *corpus, char *datasets)
 	return strdup(cmd);
 }
 
-int checkdiff(FILE *oldfile, FILE *newfile, FILE *diffsfile)
+int checkdiff(FILE *oldfile, FILE *newfile, FILE *diffsfile, FILE *fulldiffs)
 {
 	char *nline = NULL;
 	char *oline = NULL;
@@ -201,7 +212,10 @@ int checkdiff(FILE *oldfile, FILE *newfile, FILE *diffsfile)
 		if (strcmp(nline, oline)){
 			fprintf(diffsfile, "old %d: %s", linecount, oline);
 			fprintf(diffsfile, "new %d: %s\n", linecount, nline);
+			fprintf(fulldiffs, "***old %d: %snew %d: %s\n", linecount, oline, linecount, nline);
 			tot ++;
+		} else {
+			fprintf(fulldiffs, "old %d: %snew %d: %s\n", linecount, oline, linecount, nline);
 		}
 		linecount++;
 	}
@@ -209,13 +223,17 @@ int checkdiff(FILE *oldfile, FILE *newfile, FILE *diffsfile)
 	while (oline = fgets(buf2, MAXBUF, oldfile)){
 		fprintf(diffsfile, "old %d: %s", linecount, oline);
 		fprintf(diffsfile, "new: \n\n");
+		fprintf(fulldiffs, "***old %d: %snew %d: %s\n", linecount, oline, linecount, nline);
 		tot++;
+		linecount++;
 	}
 
 	while (nline = fgets(buf1, MAXBUF, newfile)){
 		fprintf(diffsfile, "old: \n");
 		fprintf(diffsfile, "new %d: %s \n", linecount, nline);
+		fprintf(fulldiffs, "***old %d: %snew %d: %s\n", linecount, oline, linecount, nline);
 		tot++;
+		linecount++;
 	}
 
 	fprintf(diffsfile, "Number of differences: %d\n\n", tot);
@@ -223,23 +241,26 @@ int checkdiff(FILE *oldfile, FILE *newfile, FILE *diffsfile)
 	return tot;
 }
 
-int checkdiffs(char **origfiles, char **oldfiles, char **newfiles)
+
+int checkdiffs(char **rootlessfiles, char **oldfiles, char **newfiles)
 {
 	int i;
 	FILE *diffsfile = fopen("regtest/diffs.txt", "wb");
+	FILE *fulldiffs = fopen("regtest/fulldiffs.txt", "wb");
 	int tot = 0;
 
 	for (i = 0; i < 7; i++){
-		fprintf(diffsfile, "%s:\n", origfiles[i]);
+		fprintf(diffsfile, "%s:\n", rootlessfiles[i]);
 		FILE *oldf = fopen(oldfiles[i], "rb");
 		FILE *newf = fopen(newfiles[i], "rb");
-		tot += checkdiff(oldf, newf, diffsfile);
+		tot += checkdiff(oldf, newf, diffsfile, fulldiffs);
 		fclose(oldf);
 		fclose(newf);
 	}
 
 	fprintf(diffsfile, "\n\nTotal number of differences: %d", tot);
 	fclose(diffsfile);
+	fclose(fulldiffs);
 	return tot;
 }
 
@@ -274,7 +295,8 @@ int main(int argc, char *argv[])
 	char *newpath = "regtest/new/";
 
 	char **filebases = makeFileBases();
-	char **origfiles = makeOrigFilenames(origpath, cleancor, filebases);
+	char **rootlessfiles = makeRootlessFilenames(cleancor, filebases);
+	char **origfiles = makeOrigFilenames(origpath, rootlessfiles);
 	char **oldfiles = makeOldFilenames(oldpath, cleancor, filebases);
 	char **newfiles = makeNewFilenames(newpath, cleancor, filebases);
 
@@ -286,7 +308,7 @@ int main(int argc, char *argv[])
 	copyAllNewFiles(origfiles, newfiles);
 
 	int tot;
-	tot = checkdiffs(origfiles, oldfiles, newfiles);
+	tot = checkdiffs(rootlessfiles, oldfiles, newfiles);
 	fprintf(stdout, "\nTotal number of differences: %d\n", tot);
 
     return 0;
